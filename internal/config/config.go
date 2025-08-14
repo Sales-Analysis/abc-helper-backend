@@ -1,3 +1,4 @@
+// Package config provides environment-based configuration loading for the service.
 package config
 
 import (
@@ -6,6 +7,7 @@ import (
 	"time"
 )
 
+// Config holds HTTP server and shutdown timeouts and port configuration.
 type Config struct {
 	Port            string
 	ReadTimeout     time.Duration
@@ -14,6 +16,7 @@ type Config struct {
 	ShutdownTimeout time.Duration
 }
 
+// Load reads configuration from environment variables and applies sane defaults.
 func Load() Config {
 	return Config{
 		Port:            getenv("PORT", "8080"),

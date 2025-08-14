@@ -1,3 +1,4 @@
+// Package main wires and runs the HTTP server for abc-helper-backend.
 package main
 
 import (
