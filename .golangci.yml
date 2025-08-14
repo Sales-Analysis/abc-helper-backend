@@ -1,0 +1,39 @@
+version: "2"
+
+run:
+  go: "1.23"
+  timeout: 3m
+  tests: true
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - ineffassign
+    - errcheck
+    - unconvert
+    - misspell
+    - gocyclo
+    - dupl
+    - unparam
+    - prealloc
+    - nakedret
+    - gosec
+    - revive
+    - lll
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  misspell:
+    locale: US
+  lll:
+    line-length: 140
+  revive:
+    # мягкий набор правил; можно усилить позже
+    severity: warning
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
