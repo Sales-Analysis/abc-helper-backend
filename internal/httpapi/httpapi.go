@@ -1,3 +1,4 @@
+// Package httpapi exposes HTTP routing, handlers, and small middleware helpers.
 package httpapi
 
 import (
@@ -9,11 +10,12 @@ import (
 	"github.com/Sales-Analysis/abc-helper-backend/internal/version"
 )
 
+// Router builds and returns the HTTP mux with public endpoints.
 func Router(v version.Info) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Hello World
-	mux.HandleFunc("/", jsonHandler(func(r *http.Request) (any, int, error) {
+	mux.HandleFunc("/", jsonHandler(func(_ *http.Request) (any, int, error) {
 		return map[string]any{
 			"message": "hello, world",
 			"time":    time.Now().UTC().Format(time.RFC3339Nano),
@@ -21,23 +23,24 @@ func Router(v version.Info) *http.ServeMux {
 	}))
 
 	// Liveness
-	mux.HandleFunc("/healthz", jsonHandler(func(r *http.Request) (any, int, error) {
+	mux.HandleFunc("/healthz", jsonHandler(func(_ *http.Request) (any, int, error) {
 		return map[string]string{"status": "ok"}, http.StatusOK, nil
 	}))
 
 	// Readiness
-	mux.HandleFunc("/ready", jsonHandler(func(r *http.Request) (any, int, error) {
+	mux.HandleFunc("/ready", jsonHandler(func(_ *http.Request) (any, int, error) {
 		return map[string]string{"ready": "true"}, http.StatusOK, nil
 	}))
 
 	// Build/Version info
-	mux.HandleFunc("/version", jsonHandler(func(r *http.Request) (any, int, error) {
+	mux.HandleFunc("/version", jsonHandler(func(_ *http.Request) (any, int, error) {
 		return v, http.StatusOK, nil
 	}))
 
 	return mux
 }
 
+// jsonHandler is a small helper that standardizes JSON responses and access logging.
 func jsonHandler(fn func(r *http.Request) (any, int, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -51,7 +54,6 @@ func jsonHandler(fn func(r *http.Request) (any, int, error)) http.HandlerFunc {
 			_ = json.NewEncoder(w).Encode(payload)
 		}
 
-		// простой access-лог: METHOD PATH CODE DURATION
 		log.Printf("%s %s %d %v", r.Method, r.URL.Path, code, time.Since(start))
 	}
 }

@@ -41,3 +41,28 @@ docker build \
 ```bash
 docker run --rm -p 8080:8080 abc-helper-backend:latest
 ```
+
+## Quality checks before commit
+
+### Pre-commit hook (golangci-lint)
+
+В проекте настроен git hook, который запускает `golangci-lint` **перед каждым коммитом**.  
+Коммит будет отклонён, если есть ошибки линтера.
+
+#### Установка hook
+
+```bash
+# создать/обновить .git/hooks/pre-commit
+mkdir -p .git/hooks
+cat > .git/hooks/pre-commit <<'EOF'
+#!/bin/sh
+echo "🔍 Running golangci-lint before commit..."
+golangci-lint run
+if [ $? -ne 0 ]; then
+    echo "❌ Lint failed — commit aborted."
+    exit 1
+fi
+echo "✅ Lint passed."
+EOF
+
+chmod +x .git/hooks/pre-commit
