@@ -21,7 +21,6 @@ info:
 paths:
   /:
     get:
-      description: Returns hello world message
       produces:
       - application/json
       responses:
@@ -44,7 +43,7 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Liveness probe
+      summary: Liveness
       tags:
       - health
   /ready:
@@ -58,7 +57,7 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Readiness probe
+      summary: Readiness
       tags:
       - health
   /version:
@@ -70,7 +69,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/version.Info'
-      summary: Build information
+      summary: Build info
       tags:
       - meta
 swagger: "2.0"
