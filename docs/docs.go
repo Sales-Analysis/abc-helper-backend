@@ -21,7 +21,6 @@ const docTemplate = `{
     "paths": {
         "/": {
             "get": {
-                "description": "Returns hello world message",
                 "produces": [
                     "application/json"
                 ],
@@ -48,7 +47,7 @@ const docTemplate = `{
                 "tags": [
                     "health"
                 ],
-                "summary": "Liveness probe",
+                "summary": "Liveness",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -70,7 +69,7 @@ const docTemplate = `{
                 "tags": [
                     "health"
                 ],
-                "summary": "Readiness probe",
+                "summary": "Readiness",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -92,7 +91,7 @@ const docTemplate = `{
                 "tags": [
                     "meta"
                 ],
-                "summary": "Build information",
+                "summary": "Build info",
                 "responses": {
                     "200": {
                         "description": "OK",
