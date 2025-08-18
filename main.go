@@ -1,4 +1,13 @@
-// Package main wires and runs the HTTP server for abc-helper-backend.
+// @title           ABC Helper Backend API
+// @version         0.1.0
+// @description     Minimal HTTP API for abc-helper-backend (hello, probes, version).
+
+// @contact.name    ABC Helper Team
+// @contact.url     https://github.com/Sales-Analysis/abc-helper-backend
+// @contact.email   vladislavtagaev@gmail.com
+
+// @host      localhost:8080
+// @BasePath  /
 package main
 
 import (

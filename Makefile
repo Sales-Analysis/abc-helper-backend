@@ -12,42 +12,51 @@ LDFLAGS=-s -w \
 
 .PHONY: build run test tidy docker clean lint lint-setup swagger swagger-clean
 
+## Сборка бинаря
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(APP) $(PKG)
 
+## Запуск локально
 run:
 	PORT=8080 go run $(PKG)
 
+## Тесты
 test:
 	go test ./...
 
+## Приведение зависимостей и кода в порядок
 tidy:
 	go mod tidy
 	go fmt ./...
 	go vet ./...
 
+## Сборка Docker-образа
 docker:
-	docker build --build-arg VERSION=$(VERSION) \
-	             --build-arg COMMIT=$(GIT_COMMIT) \
-	             --build-arg BUILT_AT=$(BUILD_TIME) \
-	             -t $(APP):latest .
+	docker build \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(GIT_COMMIT) \
+		--build-arg BUILT_AT=$(BUILD_TIME) \
+		-t $(APP):latest .
 
+## Очистка артефактов
 clean:
 	rm -rf bin
 
-# --- linters ---
+## --- linters ---
 lint-setup:
-	# Install golangci-lint (macOS/Linux, изменяй версию при желании)
+	# Установка golangci-lint (Linux/macOS, поменяй версию при желании)
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
 	  | sh -s -- -b $(shell go env GOPATH)/bin v1.58.2
 
 lint:
 	golangci-lint run
 
-# --- swagger ---
+## --- swagger ---
 swagger:
-	# Требуется: go install github.com/swaggo/swag/cmd/swag@latest
-	swag init --parseDependency --parseInternal --output ./docs --generalInfo ./main.go
+	# Требуется swag@latest установленный через go install
+	swag init --parseDependency --parseInternal \
+	  --output ./docs \
+	  --generalInfo ./main.go
 
 swagger-clean:
 	rm -rf docs

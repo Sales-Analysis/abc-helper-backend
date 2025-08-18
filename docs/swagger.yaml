@@ -1,0 +1,76 @@
+basePath: /
+definitions:
+  version.Info:
+    properties:
+      built_at:
+        type: string
+      commit:
+        type: string
+      version:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: vladislavtagaev@gmail.com
+    name: ABC Helper Team
+    url: https://github.com/Sales-Analysis/abc-helper-backend
+  description: Minimal HTTP API for abc-helper-backend (hello, probes, version).
+  title: ABC Helper Backend API
+  version: 0.1.0
+paths:
+  /:
+    get:
+      description: Returns hello world message
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Hello world
+      tags:
+      - root
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe
+      tags:
+      - health
+  /ready:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness probe
+      tags:
+      - health
+  /version:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/version.Info'
+      summary: Build information
+      tags:
+      - meta
+swagger: "2.0"
