@@ -56,13 +56,31 @@ docker run --rm -p 8080:8080 abc-helper-backend:latest
 mkdir -p .git/hooks
 cat > .git/hooks/pre-commit <<'EOF'
 #!/bin/sh
-echo "🔍 Running golangci-lint before commit..."
-golangci-lint run
-if [ $? -ne 0 ]; then
-    echo "❌ Lint failed — commit aborted."
-    exit 1
+echo "🔍 Running pre-commit checks..."
+
+# Линтеры
+echo "➡️  Linting..."
+if ! make lint; then
+  echo "❌ Lint failed. Commit aborted."
+  exit 1
 fi
-echo "✅ Lint passed."
+
+# Тесты
+echo "➡️  Running tests..."
+if ! make test; then
+  echo "❌ Tests failed. Commit aborted."
+  exit 1
+fi
+
+# Swagger docs
+echo "➡️  Generating Swagger docs..."
+if ! make swagger; then
+  echo "❌ Swagger generation failed. Commit aborted."
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+
 EOF
 
 chmod +x .git/hooks/pre-commit
