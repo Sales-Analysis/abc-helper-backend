@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type Config struct {
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
+	LogLevel        string // "debug" | "info" | "warn" | "error"
 }
 
 // Load reads configuration from environment variables and applies sane defaults.
@@ -24,6 +26,7 @@ func Load() Config {
 		WriteTimeout:    dur("WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:     dur("IDLE_TIMEOUT", 60*time.Second),
 		ShutdownTimeout: dur("SHUTDOWN_TIMEOUT", 10*time.Second),
+		LogLevel:        strings.ToLower(getenv("LOG_LEVEL", "info")),
 	}
 }
 
