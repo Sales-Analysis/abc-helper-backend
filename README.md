@@ -66,3 +66,33 @@ echo "✅ Lint passed."
 EOF
 
 chmod +x .git/hooks/pre-commit
+```
+
+## Makefile targets
+
+* make build — сборка бинаря (bin/abc-helper-backend)
+* make run — запуск локально (порт 8080)
+* make lint — линтеры
+* make test — тесты
+* make docker — сборка Docker-образа
+* make swagger — генерация Swagger-документации (./docs)
+* make swagger-clean — очистка docs
+
+## Swagger/OpenAPI
+
+### 1. Сгенерировать спецификацию
+
+```bash
+make swagger
+```
+
+### 2. Запустить сервис
+
+```bash
+make build
+./bin/abc-helper-backend
+```
+
+### 3. Открыть UI
+
+<http://localhost:8080/swagger/index.html>
