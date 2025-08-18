@@ -12,12 +12,12 @@ package main
 
 import (
 	"context"
-	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Sales-Analysis/abc-helper-backend/internal/config"
 	"github.com/Sales-Analysis/abc-helper-backend/internal/httpapi"
@@ -25,37 +25,46 @@ import (
 )
 
 func main() {
+	// Конфигурация
 	cfg := config.Load()
 
-	mux := httpapi.Router(version.Get()) // /, /healthz, /ready, /version
+	// Логгер (slog)
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(log)
 
+	// Маршрутизатор + middleware
+	handler := httpapi.Router(version.Get(), log)
+
+	// HTTP сервер
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	// start
+	// Запуск сервера
 	go func() {
-		log.Printf("listening on :%s", cfg.Port)
-		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server error: %v", err)
+		log.Info("server starting", slog.String("addr", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("server failed", slog.Any("err", err))
+			os.Exit(1)
 		}
 	}()
 
-	// graceful shutdown
+	// Graceful shutdown по сигналам
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	log.Info("server shutting down...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	log.Printf("shutting down, timeout=%s", cfg.ShutdownTimeout)
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
-		_ = srv.Close()
+		log.Error("graceful shutdown failed", slog.Any("err", err))
+	} else {
+		log.Info("server exited cleanly")
 	}
-	log.Println("bye")
 }
