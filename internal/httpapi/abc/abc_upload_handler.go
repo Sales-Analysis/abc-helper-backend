@@ -1,4 +1,4 @@
-package httpapi
+package abc
 
 import (
 	"fmt"
@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+// UploadHandler processes an XLSX file upload for ABC analysis:
+// - accepts multipart/form-data with a single "file" part;
+// - validates extension/structure/rows;
+// - emits structured errors with codes;
+// - records Prometheus metrics on success/failure and duration.
+//
 // @Summary      Upload ABC XLSX
 // @Description  Accepts an XLSX file, validates it and returns OK if valid.
 // @Tags         analysis
@@ -16,7 +22,7 @@ import (
 // @Success      200   {object}  map[string]string
 // @Failure      400   {object}  map[string]any
 // @Router       /api/v1/abc/upload [post]
-func abcUploadHandler(w http.ResponseWriter, r *http.Request) {
+func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, ErrMethodNotAllowed, "method not allowed")
 		return
@@ -25,7 +31,7 @@ func abcUploadHandler(w http.ResponseWriter, r *http.Request) {
 	// --- измеряем время выполнения
 	start := time.Now()
 	defer func() {
-		uploadDuration.Observe(time.Since(start).Seconds())
+		UploadDuration.Observe(time.Since(start).Seconds())
 	}()
 
 	// ограничиваем тело и парсим multipart
@@ -91,6 +97,6 @@ func abcUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uploadCounter.WithLabelValues("success").Inc()
+	UploadCounter.WithLabelValues("success").Inc()
 	writeOK(w, map[string]string{"status": "ok"})
 }

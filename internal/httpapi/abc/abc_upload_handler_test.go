@@ -1,4 +1,4 @@
-package httpapi
+package abc
 
 import (
 	"bytes"
@@ -41,7 +41,7 @@ func doUpload(t *testing.T, filename string, content []byte) *httptest.ResponseR
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rr := httptest.NewRecorder()
 
-	abcUploadHandler(rr, req)
+	UploadHandler(rr, req)
 	return rr
 }
 
@@ -82,7 +82,7 @@ func TestUpload_MethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/abc/upload", nil)
 	rr := httptest.NewRecorder()
 
-	abcUploadHandler(rr, req)
+	UploadHandler(rr, req)
 
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("want 405, got %d", rr.Code)
@@ -104,7 +104,7 @@ func TestUpload_MissingFile(t *testing.T) {
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rr := httptest.NewRecorder()
 
-	abcUploadHandler(rr, req)
+	UploadHandler(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d", rr.Code)

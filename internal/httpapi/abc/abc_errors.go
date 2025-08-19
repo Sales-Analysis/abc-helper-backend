@@ -1,11 +1,12 @@
-package httpapi
+// Package abc contains handlers, validation logic, errors and metrics for ABC analysis endpoints.
+package abc
 
 import (
 	"encoding/json"
 	"net/http"
 )
 
-// ErrCode — программный код ошибки, который клиент может разбирать без парсинга текста.
+// ErrCode is a machine-readable error code returned by the API.
 type ErrCode string
 
 // Набор кодов ошибок, возвращаемых API при валидации/загрузке XLSX.
@@ -22,7 +23,7 @@ const (
 	ErrMissingValue     ErrCode = "MISSING_VALUE"
 )
 
-// APIError — JSON-структура ошибки в ответе API.
+// APIError is the JSON shape for error responses.
 type APIError struct {
 	Code    ErrCode `json:"code"`
 	Message string  `json:"message"`

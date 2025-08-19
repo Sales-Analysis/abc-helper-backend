@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	_ "github.com/Sales-Analysis/abc-helper-backend/docs" // swagger docs are registered via blank import
+	"github.com/Sales-Analysis/abc-helper-backend/internal/httpapi/abc"
 	"github.com/Sales-Analysis/abc-helper-backend/internal/version"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// Router собирает mux и возвращает уже обёрнутый middleware-ами http.Handler.
+// Router builds the HTTP mux, attaches middlewares and returns the HTTP handler.
+// It wires system endpoints, business endpoints (e.g., ABC), Swagger UI and /metrics.
 func Router(v version.Info, log *slog.Logger) http.Handler {
 	buildInfo = v
 	logger = log
@@ -20,7 +22,8 @@ func Router(v version.Info, log *slog.Logger) http.Handler {
 	mux.HandleFunc("/ready", readyHandler)
 	mux.HandleFunc("/version", versionHandler)
 
-	mux.HandleFunc("/api/v1/abc/upload", abcUploadHandler)
+	// ABC upload
+	mux.HandleFunc("/api/v1/abc/upload", abc.UploadHandler)
 
 	// Swagger UI
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
