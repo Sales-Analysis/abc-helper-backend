@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // @Summary      Upload ABC XLSX
@@ -20,6 +21,12 @@ func abcUploadHandler(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, ErrMethodNotAllowed, "method not allowed")
 		return
 	}
+
+	// --- измеряем время выполнения
+	start := time.Now()
+	defer func() {
+		uploadDuration.Observe(time.Since(start).Seconds())
+	}()
 
 	// ограничиваем тело и парсим multipart
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
@@ -84,5 +91,6 @@ func abcUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uploadCounter.WithLabelValues("success").Inc()
 	writeOK(w, map[string]string{"status": "ok"})
 }

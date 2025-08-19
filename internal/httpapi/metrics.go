@@ -32,6 +32,7 @@ func init() {
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		inFlight, reqTotal, reqDuration, helloTotal,
+		uploadCounter, uploadDuration,
 	)
 }
 
