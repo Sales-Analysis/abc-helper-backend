@@ -55,8 +55,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
       summary: Upload ABC XLSX
       tags:
