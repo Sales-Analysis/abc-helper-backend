@@ -20,6 +20,8 @@ func Router(v version.Info, log *slog.Logger) http.Handler {
 	mux.HandleFunc("/ready", readyHandler)
 	mux.HandleFunc("/version", versionHandler)
 
+	mux.HandleFunc("/api/v1/abc/upload", abcUploadHandler)
+
 	// Swagger UI
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 

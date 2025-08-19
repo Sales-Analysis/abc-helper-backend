@@ -32,6 +32,35 @@ paths:
       summary: Hello world
       tags:
       - root
+  /api/v1/abc/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accepts an XLSX file, validates it and returns OK if valid.
+      parameters:
+      - description: XLSX file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Upload ABC XLSX
+      tags:
+      - analysis
   /healthz:
     get:
       produces:
