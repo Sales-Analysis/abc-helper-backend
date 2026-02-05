@@ -3,6 +3,7 @@ package abc
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,22 @@ type errResp struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"error"`
+}
+
+type okResp struct {
+	Status string          `json:"status"`
+	Result []productResult `json:"result"`
+}
+
+type productResult struct {
+	SKU              string
+	Name             string
+	Quantity         int
+	PriceUnit        float64
+	PriceTotal       float64
+	ShareTotal       float64
+	ShareAccumulated float64
+	Group            string
 }
 
 func doUpload(t *testing.T, filename string, content []byte) *httptest.ResponseRecorder {
@@ -52,6 +69,22 @@ func parseErr(t *testing.T, rr *httptest.ResponseRecorder) errResp {
 		t.Fatalf("unmarshal error response: %v; body=%q", err, rr.Body.String())
 	}
 	return e
+}
+
+func parseOK(t *testing.T, rr *httptest.ResponseRecorder) okResp {
+	t.Helper()
+	var ok okResp
+	if err := json.Unmarshal(rr.Body.Bytes(), &ok); err != nil {
+		t.Fatalf("unmarshal ok response: %v; body=%q", err, rr.Body.String())
+	}
+	return ok
+}
+
+func assertFloat(t *testing.T, got, want float64) {
+	t.Helper()
+	if math.Abs(got-want) > 0.0001 {
+		t.Fatalf("want %.4f, got %.4f", want, got)
+	}
 }
 
 func makeXLSX(t *testing.T, rows [][]any) []byte {
@@ -200,19 +233,19 @@ func TestUpload_SkipEmptyRow_OK(t *testing.T) {
 		// полностью пустая строка
 		{"", "", "", "", "", "", ""},
 		// валидная строка
-		{1, "A", 100.0, 10, 0.6, 0.6, "A"},
+		{1, "A", 100.0, 10, "", "", ""},
 	})
 	rr := doUpload(t, "ok.xlsx", content)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d; body=%s", rr.Code, rr.Body.String())
 	}
-	var ok map[string]string
-	if err := json.Unmarshal(rr.Body.Bytes(), &ok); err != nil {
-		t.Fatalf("unmarshal ok: %v", err)
+	ok := parseOK(t, rr)
+	if ok.Status != "ok" {
+		t.Fatalf("want status ok, got %v", ok.Status)
 	}
-	if ok["status"] != "ok" {
-		t.Fatalf("want status ok, got %v", ok)
+	if len(ok.Result) != 1 {
+		t.Fatalf("want 1 result, got %d", len(ok.Result))
 	}
 }
 
@@ -232,21 +265,91 @@ func TestUpload_TooLarge(t *testing.T) {
 }
 
 func TestUpload_OK(t *testing.T) {
-	// валидный файл: заголовок + полная строка
+	// валидный файл: несколько строк для ABC анализа
 	content := makeXLSX(t, [][]any{
-		{"#", "Item", "Value", "Quantity", "Share", "CumShare", "Class"},
-		{1, "A", 100.0, 10, 0.6, 0.6, "A"},
+		{"#", "Item", "Value", "Quantity"},
+		{1, "Product A", 800.0, 8},
+		{2, "Product B", 150.0, 3},
+		{3, "Product C", 50.0, 5},
 	})
 	rr := doUpload(t, "ok.xlsx", content)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d; body=%s", rr.Code, rr.Body.String())
 	}
-	var ok map[string]string
-	if err := json.Unmarshal(rr.Body.Bytes(), &ok); err != nil {
-		t.Fatalf("unmarshal ok: %v", err)
+	ok := parseOK(t, rr)
+	if ok.Status != "ok" {
+		t.Fatalf("want status ok, got %v", ok.Status)
 	}
-	if ok["status"] != "ok" {
-		t.Fatalf("want status ok, got %v", ok)
+	if len(ok.Result) != 3 {
+		t.Fatalf("want 3 results, got %d", len(ok.Result))
+	}
+	first := ok.Result[0]
+	if first.SKU != "1" || first.Name != "Product A" || first.Quantity != 8 {
+		t.Fatalf("unexpected first result: %+v", first)
+	}
+	assertFloat(t, first.PriceUnit, 100)
+	assertFloat(t, first.PriceTotal, 800)
+	assertFloat(t, first.ShareTotal, 80)
+	assertFloat(t, first.ShareAccumulated, 80)
+	if first.Group != "A" {
+		t.Fatalf("want group A, got %s", first.Group)
+	}
+
+	second := ok.Result[1]
+	assertFloat(t, second.ShareAccumulated, 95)
+	if second.Group != "B" {
+		t.Fatalf("want group B, got %s", second.Group)
+	}
+
+	third := ok.Result[2]
+	assertFloat(t, third.ShareAccumulated, 100)
+	if third.Group != "C" {
+		t.Fatalf("want group C, got %s", third.Group)
+	}
+}
+
+func TestUpload_InvalidHeader(t *testing.T) {
+	content := makeXLSX(t, [][]any{
+		{"#", "Item", "Value"},
+		{1, "A", 100.0},
+	})
+	rr := doUpload(t, "bad.xlsx", content)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", rr.Code)
+	}
+	e := parseErr(t, rr)
+	if e.Error.Code != "INVALID_HEADER" {
+		t.Fatalf("want code INVALID_HEADER, got %s", e.Error.Code)
+	}
+}
+
+func TestUpload_InvalidQuantity(t *testing.T) {
+	content := makeXLSX(t, [][]any{
+		{"#", "Item", "Value", "Quantity"},
+		{1, "A", 100.0, 1.5},
+	})
+	rr := doUpload(t, "bad.xlsx", content)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", rr.Code)
+	}
+	e := parseErr(t, rr)
+	if e.Error.Code != "INVALID_QUANTITY" {
+		t.Fatalf("want code INVALID_QUANTITY, got %s", e.Error.Code)
+	}
+}
+
+func TestUpload_InvalidNumber(t *testing.T) {
+	content := makeXLSX(t, [][]any{
+		{"#", "Item", "Value", "Quantity"},
+		{1, "A", "oops", 10},
+	})
+	rr := doUpload(t, "bad.xlsx", content)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", rr.Code)
+	}
+	e := parseErr(t, rr)
+	if e.Error.Code != "INVALID_NUMBER" {
+		t.Fatalf("want code INVALID_NUMBER, got %s", e.Error.Code)
 	}
 }

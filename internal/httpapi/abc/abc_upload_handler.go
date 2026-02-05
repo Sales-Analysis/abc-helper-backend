@@ -1,25 +1,28 @@
 package abc
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"time"
+
+	abclib "github.com/Sales-Analysis/abc-helper-lib/abc"
 )
 
 // UploadHandler processes an XLSX file upload for ABC analysis:
 // - accepts multipart/form-data with a single "file" part;
-// - validates extension/structure/rows;
+// - validates extension/structure/rows and required columns;
+// - runs ABC analysis using abc-helper-lib;
 // - emits structured errors with codes;
 // - records Prometheus metrics on success/failure and duration.
 //
 // @Summary      Upload ABC XLSX
-// @Description  Accepts an XLSX file, validates it and returns OK if valid.
+// @Description  Accepts an XLSX file, validates it and returns ABC analysis results.
 // @Tags         analysis
 // @Accept       multipart/form-data
 // @Produce      json
 // @Param        file  formData  file  true  "XLSX file"
-// @Success      200   {object}  map[string]string
+// @Success      200   {object}  UploadResponse
 // @Failure      400   {object}  map[string]any
 // @Router       /api/v1/abc/upload [post]
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -84,19 +87,35 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateRows(rows); err != nil {
-		// формат из validateRows: "MISSING_VALUE:row:col"
-		if len(err.Error()) > 0 && err.Error()[:13] == string(ErrMissingValue) {
-			var row, col int
-			_, _ = fmt.Sscanf(err.Error(), "MISSING_VALUE:%d:%d", &row, &col)
-			writeErr(w, http.StatusBadRequest, ErrMissingValue,
-				fmt.Sprintf("row %d has missing value in column %d", row, col))
-			return
+	headerIdx, err := parseHeader(rows[0])
+	if err != nil {
+		if perr := new(parseError); errors.As(err, &perr) {
+			writeErr(w, http.StatusBadRequest, perr.code, perr.msg)
+		} else {
+			writeErr(w, http.StatusBadRequest, ErrInvalidXLSX, "invalid xlsx header")
 		}
-		writeErr(w, http.StatusBadRequest, ErrInvalidXLSX, "invalid xlsx rows")
 		return
 	}
 
+	products, err := parseProducts(rows[1:], headerIdx)
+	if err != nil {
+		if perr := new(parseError); errors.As(err, &perr) {
+			writeErr(w, http.StatusBadRequest, perr.code, perr.msg)
+		} else {
+			writeErr(w, http.StatusBadRequest, ErrInvalidXLSX, "invalid xlsx rows")
+		}
+		return
+	}
+
+	analysis := abclib.New()
+	analysis.Calculate(products)
+
 	UploadCounter.WithLabelValues("success").Inc()
-	writeOK(w, map[string]string{"status": "ok"})
+	writeOK(w, UploadResponse{Status: "ok", Result: analysis.Result})
+}
+
+// UploadResponse is the JSON response for a successful ABC upload.
+type UploadResponse struct {
+	Status string                 `json:"status"`
+	Result []abclib.ProductResult `json:"result"`
 }

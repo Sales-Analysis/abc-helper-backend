@@ -4,7 +4,6 @@ package abc
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -43,28 +42,4 @@ func validateWorkbook(f *excelize.File) (sheet string, rows [][]string, err erro
 		return "", nil, errors.New(string(ErrNoData))
 	}
 	return sheet, rows, nil
-}
-
-// validateRows skips fully empty rows and fails if any non-empty row contains
-// an empty cell (reports 1-based row/column in the error message).
-func validateRows(rows [][]string) error {
-	for i, row := range rows[1:] { // пропускаем заголовок
-		allEmpty := true
-		for _, c := range row {
-			if strings.TrimSpace(c) != "" {
-				allEmpty = false
-				break
-			}
-		}
-		if allEmpty {
-			continue
-		}
-		for j, c := range row {
-			if strings.TrimSpace(c) == "" {
-				// сообщаем точные координаты
-				return fmt.Errorf("%s:%d:%d", ErrMissingValue, i+2, j+1)
-			}
-		}
-	}
-	return nil
 }

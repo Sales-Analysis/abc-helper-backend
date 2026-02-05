@@ -3,6 +3,7 @@ module github.com/Sales-Analysis/abc-helper-backend
 go 1.23.4
 
 require (
+	github.com/Sales-Analysis/abc-helper-lib v0.0.0
 	github.com/prometheus/client_golang v1.23.0
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
@@ -42,3 +43,5 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+replace github.com/Sales-Analysis/abc-helper-lib => ../abc-helper-lib
