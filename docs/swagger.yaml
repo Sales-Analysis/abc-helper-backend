@@ -1,5 +1,39 @@
 basePath: /
 definitions:
+  abc.ProductResult:
+    properties:
+      group:
+        type: string
+      name:
+        type: string
+      priceTotal:
+        format: float64
+        type: number
+      priceUnit:
+        format: float64
+        type: number
+      quantity:
+        type: integer
+      shareAccumulated:
+        format: float64
+        type: number
+      shareTotal:
+        format: float64
+        type: number
+      sku:
+        type: string
+    type: object
+  abc.UploadResponse:
+    properties:
+      explanation:
+        type: string
+      result:
+        items:
+          $ref: '#/definitions/abc.ProductResult'
+        type: array
+      status:
+        type: string
+    type: object
   version.Info:
     properties:
       built_at:
@@ -36,7 +70,7 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Accepts an XLSX file, validates it and returns OK if valid.
+      description: Accepts an XLSX file, validates it and returns ABC analysis results.
       parameters:
       - description: XLSX file
         in: formData
@@ -49,9 +83,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/abc.UploadResponse'
         "400":
           description: Bad Request
           schema:

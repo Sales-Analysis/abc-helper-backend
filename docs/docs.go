@@ -41,7 +41,7 @@ const docTemplate = `{
         },
         "/api/v1/abc/upload": {
             "post": {
-                "description": "Accepts an XLSX file, validates it and returns OK if valid.",
+                "description": "Accepts an XLSX file, validates it and returns ABC analysis results.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -65,10 +65,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/abc.UploadResponse"
                         }
                     },
                     "400": {
@@ -146,6 +143,56 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "abc.ProductResult": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priceTotal": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "priceUnit": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "shareAccumulated": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "shareTotal": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "sku": {
+                    "type": "string"
+                }
+            }
+        },
+        "abc.UploadResponse": {
+            "type": "object",
+            "properties": {
+                "explanation": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/abc.ProductResult"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "version.Info": {
             "type": "object",
             "properties": {
