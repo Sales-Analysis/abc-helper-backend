@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/Sales-Analysis/abc-helper-backend/internal/config"
 	httpapi "github.com/Sales-Analysis/abc-helper-backend/internal/httpapi"
 	"github.com/Sales-Analysis/abc-helper-backend/internal/version"
 	"github.com/xuri/excelize/v2"
@@ -56,6 +57,7 @@ func TestUploadEndpoint_WithRealXLSX(t *testing.T) {
 	handler := httpapi.Router(
 		version.Info{Version: "test", Commit: "test", BuiltAt: "now"},
 		log,
+		config.Config{},
 	)
 
 	srv := httptest.NewServer(handler)

@@ -3,7 +3,9 @@ package abc
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	abclib "github.com/Sales-Analysis/abc-helper-lib/abc"
@@ -111,11 +113,20 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	analysis.Calculate(products)
 
 	UploadCounter.WithLabelValues("success").Inc()
-	writeOK(w, UploadResponse{Status: "ok", Result: analysis.Result})
+	response := UploadResponse{Status: "ok", Result: analysis.Result}
+	explanation, explainErr := explainAnalysis(r.Context(), analysis.Result, r.Header.Get("X-Request-ID"))
+	if explainErr != nil {
+		log.Printf("assistant explanation skipped: %v", explainErr)
+	} else if strings.TrimSpace(explanation) != "" {
+		response.Explanation = explanation
+	}
+
+	writeOK(w, response)
 }
 
 // UploadResponse is the JSON response for a successful ABC upload.
 type UploadResponse struct {
-	Status string                 `json:"status"`
-	Result []abclib.ProductResult `json:"result"`
+	Status      string                 `json:"status"`
+	Result      []abclib.ProductResult `json:"result"`
+	Explanation string                 `json:"explanation,omitempty"`
 }
