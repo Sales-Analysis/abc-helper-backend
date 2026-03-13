@@ -13,44 +13,157 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	abclib "github.com/Sales-Analysis/abc-helper-lib/abc"
 )
 
+const (
+	defaultExplanationTimeout     = 120 * time.Second
+	defaultExplanationWaitTimeout = 130 * time.Second
+	defaultExplanationQueueSize   = 16
+	minWaitTimeoutDelta           = 5 * time.Second
+)
+
 type analysisExplainerConfig struct {
-	enabled bool
-	baseURL string
-	timeout time.Duration
-	mode    string
-	topN    int
+	enabled         bool
+	baseURL         string
+	timeout         time.Duration
+	waitTimeout     time.Duration
+	mode            string
+	topN            int
+	workerQueueSize int
 }
 
-func explainAnalysis(ctx context.Context, result []abclib.ProductResult, requestID string) (string, error) {
-	cfg := loadAnalysisExplainerConfig()
-	if !cfg.enabled || cfg.baseURL == "" || len(result) == 0 {
-		return "", nil
-	}
+type explanationJob struct {
+	result    []abclib.ProductResult
+	requestID string
+	done      chan explanationOutcome
+}
 
-	message := buildAnalysisExplanationPrompt(result, cfg.topN)
-	answer, err := callAssistantForExplanation(ctx, http.DefaultClient, cfg, requestID, message)
+type explanationOutcome struct {
+	answer string
+	err    error
+}
+
+type analysisExplanationWorker struct {
+	cfg  analysisExplainerConfig
+	jobs chan explanationJob
+}
+
+var (
+	explanationWorkerOnce sync.Once
+	explanationWorker     *analysisExplanationWorker
+)
+
+func explainAnalysis(ctx context.Context, result []abclib.ProductResult, requestID string) (string, error) {
+	worker := getExplanationWorker()
+	answer, err := worker.Explain(ctx, result, requestID)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(answer), nil
 }
 
+func getExplanationWorker() *analysisExplanationWorker {
+	explanationWorkerOnce.Do(func() {
+		explanationWorker = newAnalysisExplanationWorker(loadAnalysisExplainerConfig())
+	})
+	return explanationWorker
+}
+
+func newAnalysisExplanationWorker(cfg analysisExplainerConfig) *analysisExplanationWorker {
+	if cfg.workerQueueSize <= 0 {
+		cfg.workerQueueSize = defaultExplanationQueueSize
+	}
+	if cfg.waitTimeout <= 0 {
+		cfg.waitTimeout = defaultExplanationWaitTimeout
+	}
+
+	worker := &analysisExplanationWorker{cfg: cfg}
+	if cfg.enabled && cfg.baseURL != "" {
+		worker.jobs = make(chan explanationJob, cfg.workerQueueSize)
+		go worker.run()
+	}
+
+	return worker
+}
+
+func (w *analysisExplanationWorker) Explain(
+	ctx context.Context,
+	result []abclib.ProductResult,
+	requestID string,
+) (string, error) {
+	if w == nil || !w.cfg.enabled || w.cfg.baseURL == "" || len(result) == 0 {
+		return "", nil
+	}
+
+	waitCtx, cancel := context.WithTimeout(ctx, w.cfg.waitTimeout)
+	defer cancel()
+
+	job := explanationJob{
+		result:    append([]abclib.ProductResult(nil), result...),
+		requestID: requestID,
+		done:      make(chan explanationOutcome, 1),
+	}
+
+	select {
+	case w.jobs <- job:
+	case <-waitCtx.Done():
+		return "", waitCtx.Err()
+	}
+
+	select {
+	case out := <-job.done:
+		return out.answer, out.err
+	case <-waitCtx.Done():
+		return "", waitCtx.Err()
+	}
+}
+
+func (w *analysisExplanationWorker) run() {
+	for job := range w.jobs {
+		jobCtx, cancel := context.WithTimeout(context.Background(), w.cfg.timeout)
+		message := buildAnalysisExplanationPrompt(job.result, w.cfg.topN)
+		answer, err := callAssistantForExplanation(jobCtx, http.DefaultClient, w.cfg, job.requestID, message)
+		cancel()
+
+		if err == nil {
+			answer = strings.TrimSpace(answer)
+		}
+
+		job.done <- explanationOutcome{answer: answer, err: err}
+	}
+}
+
 func loadAnalysisExplainerConfig() analysisExplainerConfig {
+	timeout := envDuration("ASSISTANT_ANALYSIS_EXPLANATION_TIMEOUT", defaultExplanationTimeout)
+	if timeout <= 0 {
+		timeout = defaultExplanationTimeout
+	}
+	waitTimeout := envDuration(
+		"ASSISTANT_ANALYSIS_EXPLANATION_WAIT_TIMEOUT",
+		defaultExplanationWaitTimeout,
+	)
+	if waitTimeout <= 0 {
+		waitTimeout = defaultExplanationWaitTimeout
+	}
+	// Wait timeout must be longer than worker request timeout.
+	if waitTimeout <= timeout {
+		waitTimeout = timeout + minWaitTimeoutDelta
+	}
+
 	cfg := analysisExplainerConfig{
-		enabled: envBool("ASSISTANT_ANALYSIS_EXPLANATION_ENABLED", true),
-		baseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("ASSISTANT_BASE_URL")), "/"),
-		timeout: envDuration("ASSISTANT_TIMEOUT", 15*time.Second),
-		mode:    strings.TrimSpace(strings.ToLower(os.Getenv("ASSISTANT_ANALYSIS_EXPLANATION_MODE"))),
-		topN:    envInt("ASSISTANT_ANALYSIS_EXPLANATION_TOP_N", 5),
+		enabled:         envBool("ASSISTANT_ANALYSIS_EXPLANATION_ENABLED", true),
+		baseURL:         strings.TrimRight(strings.TrimSpace(os.Getenv("ASSISTANT_BASE_URL")), "/"),
+		timeout:         timeout,
+		waitTimeout:     waitTimeout,
+		mode:            strings.TrimSpace(strings.ToLower(os.Getenv("ASSISTANT_ANALYSIS_EXPLANATION_MODE"))),
+		topN:            envInt("ASSISTANT_ANALYSIS_EXPLANATION_TOP_N", 5),
+		workerQueueSize: envInt("ASSISTANT_ANALYSIS_EXPLANATION_WORKER_QUEUE_SIZE", defaultExplanationQueueSize),
 	}
-	if cfg.timeout <= 0 {
-		cfg.timeout = 15 * time.Second
-	}
+
 	if cfg.mode == "" {
 		cfg.mode = "help"
 	}
@@ -63,6 +176,13 @@ func loadAnalysisExplainerConfig() analysisExplainerConfig {
 	if cfg.topN > 20 {
 		cfg.topN = 20
 	}
+	if cfg.waitTimeout <= cfg.timeout {
+		cfg.waitTimeout = cfg.timeout + minWaitTimeoutDelta
+	}
+	if cfg.workerQueueSize <= 0 {
+		cfg.workerQueueSize = defaultExplanationQueueSize
+	}
+
 	return cfg
 }
 
@@ -80,6 +200,7 @@ func callAssistantForExplanation(
 		"session_id": "abc-upload-analysis",
 		"mode":       cfg.mode,
 		"message":    message,
+		"bypass_rag": true,
 		"user_context": map[string]any{
 			"role": "analyst",
 		},
@@ -93,7 +214,12 @@ func callAssistantForExplanation(
 	reqCtx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, cfg.baseURL+"/v1/chat", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		reqCtx,
+		http.MethodPost,
+		cfg.baseURL+"/v1/chat",
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return "", err
 	}
@@ -176,8 +302,18 @@ func buildAnalysisExplanationPrompt(result []abclib.ProductResult, topN int) str
 	b.WriteString(fmt.Sprintf("Топ-%d позиций по выручке:\n", topN))
 	for i := 0; i < topN; i++ {
 		item := sorted[i]
-		b.WriteString(fmt.Sprintf("%d) SKU=%s, Name=%s, Group=%s, Quantity=%d, Revenue=%.2f, Share=%.2f%%\n",
-			i+1, item.SKU, item.Name, item.Group, item.Quantity, item.PriceTotal, item.ShareTotal))
+		b.WriteString(
+			fmt.Sprintf(
+				"%d) SKU=%s, Name=%s, Group=%s, Quantity=%d, Revenue=%.2f, Share=%.2f%%\n",
+				i+1,
+				item.SKU,
+				item.Name,
+				item.Group,
+				item.Quantity,
+				item.PriceTotal,
+				item.ShareTotal,
+			),
+		)
 	}
 	return b.String()
 }

@@ -18,11 +18,14 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
     -X github.com/Sales-Analysis/abc-helper-backend/internal/version.Commit=${COMMIT} \
     -X github.com/Sales-Analysis/abc-helper-backend/internal/version.BuiltAt=${BUILT_AT}" \
     -o /out/abc-helper-backend .
+RUN mkdir -p /runtime-upload-tmp && chmod 700 /runtime-upload-tmp
 
 FROM scratch
-USER 10001:10001
 EXPOSE 8080
 ENV PORT=8080 READ_TIMEOUT=5s WRITE_TIMEOUT=10s IDLE_TIMEOUT=60s SHUTDOWN_TIMEOUT=10s
 ENV ASSISTANT_TIMEOUT=15s
-COPY --from=build /out/abc-helper-backend /abc-helper-backend
+ENV TMPDIR=/upload-tmp
+COPY --from=build --chown=10001:10001 /runtime-upload-tmp /upload-tmp
+COPY --from=build --chown=10001:10001 /out/abc-helper-backend /abc-helper-backend
+USER 10001:10001
 ENTRYPOINT ["/abc-helper-backend"]

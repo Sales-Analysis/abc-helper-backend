@@ -26,6 +26,12 @@ func Router(v version.Info, log *slog.Logger, cfg config.Config) http.Handler {
 
 	// ABC upload
 	mux.HandleFunc("/api/v1/abc/upload", abc.UploadHandler)
+	mux.HandleFunc("/api/v1/abc/upload/prepare", abc.UploadPrepareHandler)
+	mux.HandleFunc("/api/v1/abc/upload/jobs", abc.UploadJobCreateHandler)
+	mux.HandleFunc("/api/v1/abc/upload/jobs/", abc.UploadJobStatusHandler)
+	mux.HandleFunc("/api/v1/abc/explanation", abc.ExplanationHandler)
+	mux.HandleFunc("/api/v1/abc/explanation/jobs", abc.ExplanationJobCreateHandler)
+	mux.HandleFunc("/api/v1/abc/explanation/jobs/", abc.ExplanationJobStatusHandler)
 	mux.HandleFunc("/assistant/chat", assistant.HandleChat)
 	mux.HandleFunc("/api/v1/assistant/chat", assistant.HandleChat)
 

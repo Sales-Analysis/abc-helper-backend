@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -85,6 +86,40 @@ func TestCallAssistantForExplanationHTTPError(t *testing.T) {
 	_, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-2", "prompt")
 	if err == nil {
 		t.Fatalf("expected error on non-2xx response")
+	}
+}
+
+func TestLoadAnalysisExplainerConfigUsesDedicatedTimeoutDefault(t *testing.T) {
+	withEnvUnset(t, "ASSISTANT_ANALYSIS_EXPLANATION_TIMEOUT")
+	withEnvUnset(t, "ASSISTANT_ANALYSIS_EXPLANATION_WAIT_TIMEOUT")
+	withEnvUnset(t, "ASSISTANT_ANALYSIS_EXPLANATION_WORKER_QUEUE_SIZE")
+	t.Setenv("ASSISTANT_TIMEOUT", "15s")
+
+	cfg := loadAnalysisExplainerConfig()
+	if cfg.timeout != defaultExplanationTimeout {
+		t.Fatalf("expected default timeout %s, got %s", defaultExplanationTimeout, cfg.timeout)
+	}
+}
+
+func TestLoadAnalysisExplainerConfigAutoAdjustsWaitTimeout(t *testing.T) {
+	t.Setenv("ASSISTANT_ANALYSIS_EXPLANATION_TIMEOUT", "30s")
+	t.Setenv("ASSISTANT_ANALYSIS_EXPLANATION_WAIT_TIMEOUT", "10s")
+
+	cfg := loadAnalysisExplainerConfig()
+	want := 30*time.Second + minWaitTimeoutDelta
+	if cfg.waitTimeout != want {
+		t.Fatalf("expected wait timeout %s, got %s", want, cfg.waitTimeout)
+	}
+}
+
+func withEnvUnset(t *testing.T, key string) {
+	t.Helper()
+	old, ok := os.LookupEnv(key)
+	if ok {
+		t.Setenv(key, old)
+	}
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("unset %s: %v", key, err)
 	}
 }
 
