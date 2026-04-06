@@ -5,20 +5,37 @@ import (
 	"net/http"
 
 	_ "github.com/Sales-Analysis/abc-helper-backend/docs" // swagger docs are registered via blank import
+	"github.com/Sales-Analysis/abc-helper-backend/internal/config"
+	"github.com/Sales-Analysis/abc-helper-backend/internal/httpapi/abc"
 	"github.com/Sales-Analysis/abc-helper-backend/internal/version"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// Router собирает mux и возвращает уже обёрнутый middleware-ами http.Handler.
-func Router(v version.Info, log *slog.Logger) http.Handler {
+// Router builds the HTTP mux, attaches middlewares and returns the HTTP handler.
+// It wires system endpoints, business endpoints (e.g., ABC), Swagger UI and /metrics.
+func Router(v version.Info, log *slog.Logger, cfg config.Config) http.Handler {
 	buildInfo = v
 	logger = log
 
 	mux := http.NewServeMux()
+	assistant := newAssistantProxy(cfg.AssistantBaseURL, cfg.AssistantTimeout)
 	mux.HandleFunc("/", helloHandler)
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/ready", readyHandler)
 	mux.HandleFunc("/version", versionHandler)
+
+	// ABC upload
+	mux.HandleFunc("/api/v1/abc/upload", abc.UploadHandler)
+	mux.HandleFunc("/api/v1/abc/upload/prepare", abc.UploadPrepareHandler)
+	mux.HandleFunc("/api/v1/abc/upload/jobs", abc.UploadJobCreateHandler)
+	mux.HandleFunc("/api/v1/abc/upload/jobs/details", abc.UploadJobDetailsHandler)
+	mux.HandleFunc("/api/v1/abc/upload/jobs/", abc.UploadJobStatusHandler)
+	mux.HandleFunc("/api/v1/abc/chart-chat", abc.ChartChatHandler)
+	mux.HandleFunc("/api/v1/abc/explanation", abc.ExplanationHandler)
+	mux.HandleFunc("/api/v1/abc/explanation/jobs", abc.ExplanationJobCreateHandler)
+	mux.HandleFunc("/api/v1/abc/explanation/jobs/", abc.ExplanationJobStatusHandler)
+	mux.HandleFunc("/assistant/chat", assistant.HandleChat)
+	mux.HandleFunc("/api/v1/assistant/chat", assistant.HandleChat)
 
 	// Swagger UI
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
@@ -27,5 +44,5 @@ func Router(v version.Info, log *slog.Logger) http.Handler {
 	mux.Handle("/metrics", metricsHandler())
 
 	// Оборачиваем общий mux
-	return withRequestID(withAccessLog(withMetrics(mux)))
+	return withCORS(withRequestID(withAccessLog(withMetrics(mux))))
 }

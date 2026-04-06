@@ -33,7 +33,7 @@ func main() {
 	slog.SetDefault(log)
 
 	// Маршрутизатор + middleware
-	handler := httpapi.Router(version.Get(), log)
+	handler := httpapi.Router(version.Get(), log, cfg)
 
 	// HTTP сервер
 	srv := &http.Server{

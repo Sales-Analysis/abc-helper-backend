@@ -42,6 +42,35 @@ docker build \
 docker run --rm -p 8080:8080 abc-helper-backend:latest
 ```
 
+## Assistant integration (optional)
+
+Backend can proxy assistant requests from frontend to `abc-helper-assistant`.
+
+Environment variables:
+
+- `ASSISTANT_BASE_URL` (example: `http://assistant-api:8080` or `http://localhost:8081`)
+- `ASSISTANT_TIMEOUT` (example: `15s`)
+
+Proxy endpoints:
+
+- `POST /assistant/chat`
+- `POST /api/v1/assistant/chat`
+
+Expected request payload (pass-through to assistant):
+
+```json
+{
+  "session_id": "sess-1",
+  "message": "How to reindex docs?",
+  "mode": "howto",
+  "user_context": {
+    "tenant_id": "tenant-a",
+    "role": "admin",
+    "groups": ["ops"]
+  }
+}
+```
+
 ## Quality checks before commit
 
 ### Pre-commit hook (golangci-lint)

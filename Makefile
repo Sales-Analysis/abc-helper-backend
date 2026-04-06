@@ -53,8 +53,7 @@ lint:
 
 ## --- swagger ---
 swagger:
-	# Требуется swag@latest установленный через go install
-	swag init --parseDependency --parseInternal \
+	swag init -q --parseDependency --parseInternal \
 	  --output ./docs \
 	  --generalInfo ./main.go
 

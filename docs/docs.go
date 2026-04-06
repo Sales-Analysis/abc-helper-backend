@@ -39,6 +39,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/abc/upload": {
+            "post": {
+                "description": "Accepts an XLSX file, validates it and returns ABC analysis results.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "analysis"
+                ],
+                "summary": "Upload ABC XLSX",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "XLSX file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/abc.UploadResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/healthz": {
             "get": {
                 "produces": [
@@ -104,6 +143,56 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "abc.ProductResult": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priceTotal": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "priceUnit": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "shareAccumulated": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "shareTotal": {
+                    "type": "number",
+                    "format": "float64"
+                },
+                "sku": {
+                    "type": "string"
+                }
+            }
+        },
+        "abc.UploadResponse": {
+            "type": "object",
+            "properties": {
+                "explanation": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/abc.ProductResult"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "version.Info": {
             "type": "object",
             "properties": {

@@ -10,23 +10,27 @@ import (
 
 // Config holds HTTP server and shutdown timeouts and port configuration.
 type Config struct {
-	Port            string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
-	LogLevel        string // "debug" | "info" | "warn" | "error"
+	Port             string
+	ReadTimeout      time.Duration
+	WriteTimeout     time.Duration
+	IdleTimeout      time.Duration
+	ShutdownTimeout  time.Duration
+	LogLevel         string // "debug" | "info" | "warn" | "error"
+	AssistantBaseURL string
+	AssistantTimeout time.Duration
 }
 
 // Load reads configuration from environment variables and applies sane defaults.
 func Load() Config {
 	return Config{
-		Port:            getenv("PORT", "8080"),
-		ReadTimeout:     dur("READ_TIMEOUT", 5*time.Second),
-		WriteTimeout:    dur("WRITE_TIMEOUT", 10*time.Second),
-		IdleTimeout:     dur("IDLE_TIMEOUT", 60*time.Second),
-		ShutdownTimeout: dur("SHUTDOWN_TIMEOUT", 10*time.Second),
-		LogLevel:        strings.ToLower(getenv("LOG_LEVEL", "info")),
+		Port:             getenv("PORT", "8080"),
+		ReadTimeout:      dur("READ_TIMEOUT", 5*time.Second),
+		WriteTimeout:     dur("WRITE_TIMEOUT", 10*time.Second),
+		IdleTimeout:      dur("IDLE_TIMEOUT", 60*time.Second),
+		ShutdownTimeout:  dur("SHUTDOWN_TIMEOUT", 10*time.Second),
+		LogLevel:         strings.ToLower(getenv("LOG_LEVEL", "info")),
+		AssistantBaseURL: strings.TrimSpace(getenv("ASSISTANT_BASE_URL", "")),
+		AssistantTimeout: dur("ASSISTANT_TIMEOUT", 15*time.Second),
 	}
 }
 

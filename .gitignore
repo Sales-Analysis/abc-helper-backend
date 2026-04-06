@@ -33,3 +33,7 @@ go.work.sum
 
 # Build dir
 bin
+
+# Local Go caches
+.gocache/
+.gomodcache/

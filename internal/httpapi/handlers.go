@@ -1,3 +1,4 @@
+// Package httpapi contains HTTP handlers and server wiring for the service.
 package httpapi
 
 import (

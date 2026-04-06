@@ -7,6 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/Sales-Analysis/abc-helper-backend/internal/httpapi/abc"
 )
 
 var (
@@ -32,6 +34,7 @@ func init() {
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		inFlight, reqTotal, reqDuration, helloTotal,
+		abc.UploadCounter, abc.UploadDuration,
 	)
 }
 
