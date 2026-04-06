@@ -548,7 +548,7 @@ func TestUploadJobStoreMarkAIPreparing(t *testing.T) {
 	resetUploadJobsState()
 
 	const jobID = "job-ai-prep"
-	uploadJobsStore.create(jobID)
+	uploadJobsStore.create(jobID, "")
 	uploadJobsStore.markRunning(jobID)
 	uploadJobsStore.markAIPreparing(jobID)
 

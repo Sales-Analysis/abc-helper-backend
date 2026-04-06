@@ -70,6 +70,7 @@ type storedUploadJob struct {
 	Status      string
 	Stage       string
 	Progress    int
+	FileID      string
 	Result      []abclib.ProductResult
 	Preparation *UploadPreparation
 	Error       *APIError
@@ -160,6 +161,7 @@ func UploadJobCreateHandler(w http.ResponseWriter, r *http.Request) {
 	jobID, err := enqueueUploadJob(
 		input.TempPath,
 		input.Filename,
+		input.FileID,
 		input.RequestID,
 		input.ConfirmedPreparation,
 		input.PrepareOnly,
@@ -230,7 +232,7 @@ func UploadJobStatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func enqueueUploadJob(
-	tempPath, filename, requestID string,
+	tempPath, filename, fileID, requestID string,
 	confirmedPreparation *UploadPreparation,
 	prepareOnly bool,
 	cleanupTemp bool,
@@ -239,7 +241,7 @@ func enqueueUploadJob(
 	if err != nil {
 		return "", err
 	}
-	uploadJobsStore.create(jobID)
+	uploadJobsStore.create(jobID, fileID)
 
 	filename = strings.TrimSpace(filename)
 	requestID = strings.TrimSpace(requestID)
@@ -450,24 +452,22 @@ func parseUploadJobCreateInput(w http.ResponseWriter, r *http.Request) (uploadJo
 		ConfirmedPreparation: confirmedPreparation,
 		RequestID:            requestID,
 	}
-	if prepareOnly {
-		createdFileID, putErr := uploadFilesStore.put(tempPath, fileHeader.Filename)
-		if putErr != nil {
-			_ = os.Remove(tempPath)
-			slog.Default().Error("abc_upload_job_store_file_failed",
-				slog.String("request_id", requestID),
-				slog.String("filename", strings.TrimSpace(fileHeader.Filename)),
-				slog.Int64("size_bytes", fileHeader.Size),
-				slog.String("err", strings.TrimSpace(putErr.Error())),
-			)
-			return uploadJobCreateInput{}, &parseError{
-				code: ErrInvalidXLSX,
-				msg:  "cannot store uploaded file",
-			}
+	createdFileID, putErr := uploadFilesStore.put(tempPath, fileHeader.Filename)
+	if putErr != nil {
+		_ = os.Remove(tempPath)
+		slog.Default().Error("abc_upload_job_store_file_failed",
+			slog.String("request_id", requestID),
+			slog.String("filename", strings.TrimSpace(fileHeader.Filename)),
+			slog.Int64("size_bytes", fileHeader.Size),
+			slog.String("err", strings.TrimSpace(putErr.Error())),
+		)
+		return uploadJobCreateInput{}, &parseError{
+			code: ErrInvalidXLSX,
+			msg:  "cannot store uploaded file",
 		}
-		input.FileID = createdFileID
-		input.CleanupTemp = false
 	}
+	input.FileID = createdFileID
+	input.CleanupTemp = false
 	slog.Default().Info("abc_upload_job_file_accepted",
 		slog.String("request_id", requestID),
 		slog.String("filename", strings.TrimSpace(fileHeader.Filename)),
@@ -649,7 +649,7 @@ func parseUploadJobID(path string) (string, bool) {
 	return jobID, true
 }
 
-func (s *uploadJobStore) create(jobID string) {
+func (s *uploadJobStore) create(jobID string, fileID string) {
 	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -659,6 +659,7 @@ func (s *uploadJobStore) create(jobID string) {
 		Status:    uploadJobStatusQueued,
 		Stage:     uploadJobStageQueued,
 		Progress:  0,
+		FileID:    strings.TrimSpace(fileID),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

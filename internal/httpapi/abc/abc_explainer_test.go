@@ -34,10 +34,11 @@ func TestBuildAnalysisExplanationPrompt(t *testing.T) {
 
 func TestCallAssistantForExplanation(t *testing.T) {
 	cfg := analysisExplainerConfig{
-		enabled: true,
-		baseURL: "http://assistant.local",
-		timeout: 3 * time.Second,
-		mode:    "help",
+		enabled:   true,
+		baseURL:   "http://assistant.local",
+		timeout:   3 * time.Second,
+		mode:      "help",
+		maxTokens: 777,
 	}
 
 	client := &http.Client{
@@ -48,6 +49,13 @@ func TestCallAssistantForExplanation(t *testing.T) {
 			if got := req.Header.Get("X-Request-ID"); got != "rid-1" {
 				t.Fatalf("expected X-Request-ID forward, got %q", got)
 			}
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			if !strings.Contains(string(body), `"max_tokens":777`) {
+				t.Fatalf("expected max_tokens in request, got %s", string(body))
+			}
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -56,9 +64,12 @@ func TestCallAssistantForExplanation(t *testing.T) {
 		}),
 	}
 
-	answer, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-1", "prompt")
+	answer, truncated, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-1", "prompt")
 	if err != nil {
 		t.Fatalf("callAssistantForExplanation err: %v", err)
+	}
+	if truncated {
+		t.Fatalf("did not expect truncated response")
 	}
 	if strings.TrimSpace(answer) != "Короткое пояснение." {
 		t.Fatalf("unexpected answer: %q", answer)
@@ -67,10 +78,11 @@ func TestCallAssistantForExplanation(t *testing.T) {
 
 func TestCallAssistantForExplanationHTTPError(t *testing.T) {
 	cfg := analysisExplainerConfig{
-		enabled: true,
-		baseURL: "http://assistant.local",
-		timeout: 3 * time.Second,
-		mode:    "help",
+		enabled:   true,
+		baseURL:   "http://assistant.local",
+		timeout:   3 * time.Second,
+		mode:      "help",
+		maxTokens: 777,
 	}
 
 	client := &http.Client{
@@ -83,9 +95,40 @@ func TestCallAssistantForExplanationHTTPError(t *testing.T) {
 		}),
 	}
 
-	_, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-2", "prompt")
+	_, _, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-2", "prompt")
 	if err == nil {
 		t.Fatalf("expected error on non-2xx response")
+	}
+}
+
+func TestCallAssistantForExplanationTruncated(t *testing.T) {
+	cfg := analysisExplainerConfig{
+		enabled:   true,
+		baseURL:   "http://assistant.local",
+		timeout:   3 * time.Second,
+		mode:      "help",
+		maxTokens: 777,
+	}
+
+	client := &http.Client{
+		Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(bytes.NewBufferString(`{"answer":"Обрезанный ответ","truncated":true}`)),
+			}, nil
+		}),
+	}
+
+	answer, truncated, err := callAssistantForExplanation(context.Background(), client, cfg, "rid-3", "prompt")
+	if err != nil {
+		t.Fatalf("callAssistantForExplanation err: %v", err)
+	}
+	if !truncated {
+		t.Fatalf("expected truncated response")
+	}
+	if strings.TrimSpace(answer) != "Обрезанный ответ" {
+		t.Fatalf("unexpected answer: %q", answer)
 	}
 }
 
